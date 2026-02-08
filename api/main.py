@@ -1,17 +1,31 @@
-﻿"""
+﻿\"\"\"
 Halos Auth API - FastAPI Application
 Mobile app authentication via Telegram
 Full backend for transactions, debts, and user management
-"""
+Synced with Telegram bot database
+\"\"\"
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from api.routers import auth, transactions, debts, users
+from api.database import init_db, close_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Initialize database
+    await init_db()
+    yield
+    # Shutdown: Close database
+    await close_db()
+
 
 app = FastAPI(
     title="Halos API",
-    description="Backend API for Halos mobile app - transactions, debts, user management",
-    version="2.0.0"
+    description="Backend API for Halos mobile app - transactions, debts, user management. Synced with Telegram bot.",
+    version="2.1.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -32,9 +46,13 @@ app.include_router(users.router, prefix="/api", tags=["Users"])
 
 @app.get("/")
 async def root():
-    return {"message": "Halos API", "status": "running", "version": "2.0.0"}
+    return {"message": "Halos API", "status": "running", "version": "2.1.0", "sync": "telegram_bot"}
 
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    from api.database import is_db_available
+    return {
+        "status": "healthy",
+        "database": "connected" if is_db_available() else "in-memory"
+    }
