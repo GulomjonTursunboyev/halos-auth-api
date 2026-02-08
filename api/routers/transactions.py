@@ -1,4 +1,4 @@
-﻿\"\"\"
+\"\"\"
 Transactions Router - PostgreSQL backed
 Syncs with Telegram bot data
 \"\"\"

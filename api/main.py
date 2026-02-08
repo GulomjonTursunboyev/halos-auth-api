@@ -1,9 +1,9 @@
-﻿\"\"\"
+"""
 Halos Auth API - FastAPI Application
 Mobile app authentication via Telegram
 Full backend for transactions, debts, and user management
 Synced with Telegram bot database
-\"\"\"
+"""
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

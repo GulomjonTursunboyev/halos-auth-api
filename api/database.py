@@ -1,4 +1,4 @@
-﻿"""
+"""
 Database connection for Halos Auth API
 Uses PostgreSQL (same database as Telegram bot for data sync)
 """

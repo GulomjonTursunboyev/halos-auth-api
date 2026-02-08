@@ -1,4 +1,4 @@
-﻿"""
+"""
 Debts Router - PostgreSQL backed
 Syncs with Telegram bot data
 """
