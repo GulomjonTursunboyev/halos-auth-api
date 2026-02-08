@@ -1,14 +1,19 @@
 """
 Telegram Authentication Router
 Handles mobile app login sessions via Telegram bot
+Includes Telegram Mini App (WebApp) authentication
 """
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
+from urllib.parse import parse_qs, unquote
 import secrets
 import jwt
+import hmac
+import hashlib
+import json
 import os
 
 router = APIRouter()
@@ -20,6 +25,9 @@ telegram_sessions = {}
 JWT_SECRET = os.getenv("JWT_SECRET", "halos-super-secret-key-change-in-production")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24 * 30  # 30 days
+
+# Telegram Bot Token for WebApp validation
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 
 class TelegramSessionCreate(BaseModel):
@@ -56,6 +64,11 @@ class SessionStatus(BaseModel):
     access_token: Optional[str] = None
 
 
+class TelegramWebAppRequest(BaseModel):
+    """Telegram Mini App (WebApp) authentication request"""
+    init_data: str
+
+
 def generate_jwt_token(user_data: dict) -> str:
     """Generate JWT token for authenticated user"""
     payload = {
@@ -68,6 +81,77 @@ def generate_jwt_token(user_data: dict) -> str:
         "iat": datetime.utcnow()
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def validate_telegram_webapp_data(init_data: str) -> Optional[dict]:
+    """
+    Validate Telegram WebApp initData using HMAC-SHA256.
+    Returns parsed data if valid, None otherwise.
+    
+    See: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    """
+    if not BOT_TOKEN:
+        # If no bot token configured, skip validation (development mode)
+        try:
+            parsed = parse_qs(init_data)
+            if 'user' in parsed:
+                return json.loads(unquote(parsed['user'][0]))
+            return None
+        except:
+            return None
+    
+    try:
+        # Parse the init_data string
+        parsed = parse_qs(init_data)
+        
+        # Get the hash from the data
+        if 'hash' not in parsed:
+            return None
+        
+        received_hash = parsed['hash'][0]
+        
+        # Create data-check-string (all key=value pairs except hash, sorted alphabetically)
+        data_pairs = []
+        for key, value in parsed.items():
+            if key != 'hash':
+                data_pairs.append(f"{key}={value[0]}")
+        
+        data_pairs.sort()
+        data_check_string = '\n'.join(data_pairs)
+        
+        # Create secret key: HMAC-SHA256(bot_token, "WebAppData")
+        secret_key = hmac.new(
+            b"WebAppData",
+            BOT_TOKEN.encode(),
+            hashlib.sha256
+        ).digest()
+        
+        # Calculate hash: HMAC-SHA256(secret_key, data_check_string)
+        calculated_hash = hmac.new(
+            secret_key,
+            data_check_string.encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Compare hashes
+        if not hmac.compare_digest(calculated_hash, received_hash):
+            return None
+        
+        # Check auth_date (data should not be older than 24 hours)
+        if 'auth_date' in parsed:
+            auth_date = int(parsed['auth_date'][0])
+            if datetime.utcnow().timestamp() - auth_date > 86400:  # 24 hours
+                return None
+        
+        # Parse and return user data
+        if 'user' in parsed:
+            return json.loads(unquote(parsed['user'][0]))
+        
+        return None
+        
+    except Exception as e:
+        print(f"Error validating WebApp data: {e}")
+        return None
 
 
 @router.post("/telegram/session", response_model=TelegramSessionResponse)
@@ -202,3 +286,44 @@ async def verify_token(token: str):
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@router.post("/telegram/webapp", response_model=TokenResponse)
+async def authenticate_telegram_webapp(request: TelegramWebAppRequest):
+    """
+    Authenticate user from Telegram Mini App (WebApp).
+    
+    This endpoint validates the initData received from Telegram WebApp
+    and returns a JWT token for the authenticated user.
+    
+    The initData is validated using HMAC-SHA256 with the bot token
+    as per Telegram's WebApp authentication flow.
+    
+    See: https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+    """
+    # Validate initData
+    user_data = validate_telegram_webapp_data(request.init_data)
+    
+    if not user_data:
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid or expired Telegram WebApp data"
+        )
+    
+    # Extract user info from Telegram WebApp data
+    telegram_user = {
+        "telegram_id": user_data.get("id"),
+        "telegram_username": user_data.get("username"),
+        "first_name": user_data.get("first_name"),
+        "last_name": user_data.get("last_name"),
+        "language_code": user_data.get("language_code"),
+        "is_premium": user_data.get("is_premium", False)
+    }
+    
+    # Generate JWT token
+    token = generate_jwt_token(telegram_user)
+    
+    return TokenResponse(
+        access_token=token,
+        user=telegram_user
+    )
