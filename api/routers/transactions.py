@@ -1,7 +1,7 @@
-\"\"\"
+"""
 Transactions Router - PostgreSQL backed
 Syncs with Telegram bot data
-\"\"\"
+"""
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
@@ -48,7 +48,7 @@ async def get_transactions(
     limit: int = Query(default=50, le=200),
     offset: int = 0,
 ):
-    \"\"\"Get transactions for a user - synced with Telegram bot\"\"\"
+    """Get transactions for a user - synced with Telegram bot"""
     pool = await get_pool()
     
     if pool and telegram_id:
@@ -90,12 +90,12 @@ async def get_transactions(
             # Fetch transactions
             params.extend([limit, offset])
             rows = await conn.fetch(
-                f\"\"\"SELECT id, user_id, type, category, category_key, amount, 
+                f"""SELECT id, user_id, type, category, category_key, amount, 
                           description, original_text, created_at
                    FROM transactions 
                    WHERE {where_clause}
                    ORDER BY created_at DESC
-                   LIMIT ${param_idx} OFFSET ${param_idx + 1}\"\"\",
+                   LIMIT ${param_idx} OFFSET ${param_idx + 1}""",
                 *params
             )
             
@@ -137,7 +137,7 @@ async def get_transactions(
 
 @router.post("/transactions")
 async def create_transaction(data: TransactionCreate):
-    \"\"\"Create a new transaction - synced with Telegram bot\"\"\"
+    """Create a new transaction - synced with Telegram bot"""
     global transaction_counter
     pool = await get_pool()
     
@@ -155,10 +155,10 @@ async def create_transaction(data: TransactionCreate):
             
             # Insert transaction (same table as Telegram bot)
             row = await conn.fetchrow(
-                \"\"\"INSERT INTO transactions 
+                """INSERT INTO transactions 
                        (user_id, type, category, amount, description, original_text)
                    VALUES ($1, $2, $3, $4, $5, $6)
-                   RETURNING id, created_at\"\"\",
+                   RETURNING id, created_at""",
                 user_id, data.type.value, data.category, data.amount,
                 data.description, data.description
             )
@@ -202,16 +202,16 @@ async def create_transaction(data: TransactionCreate):
 
 @router.get("/transactions/{tx_id}")
 async def get_transaction(tx_id: int, telegram_id: Optional[int] = None):
-    \"\"\"Get a specific transaction\"\"\"
+    """Get a specific transaction"""
     pool = await get_pool()
     
     if pool:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                \"\"\"SELECT t.*, u.telegram_id 
+                """SELECT t.*, u.telegram_id 
                    FROM transactions t
                    JOIN users u ON t.user_id = u.id
-                   WHERE t.id = $1\"\"\",
+                   WHERE t.id = $1""",
                 tx_id
             )
             if not row:
@@ -234,7 +234,7 @@ async def get_transaction(tx_id: int, telegram_id: Optional[int] = None):
 
 @router.delete("/transactions/{tx_id}")
 async def delete_transaction(tx_id: int, telegram_id: Optional[int] = None):
-    \"\"\"Delete a transaction\"\"\"
+    """Delete a transaction"""
     pool = await get_pool()
     
     if pool:
@@ -254,7 +254,7 @@ async def get_transactions_summary(
     telegram_id: Optional[int] = None,
     period: str = "month",
 ):
-    \"\"\"Get transactions summary - total income/expense\"\"\"
+    """Get transactions summary - total income/expense"""
     pool = await get_pool()
     
     if pool and telegram_id:
@@ -277,11 +277,11 @@ async def get_transactions_summary(
                 date_condition = "1=1"
             
             row = await conn.fetchrow(
-                f\"\"\"SELECT 
+                f"""SELECT 
                         COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as total_income,
                         COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as total_expense
                    FROM transactions 
-                   WHERE user_id = $1 AND {date_condition}\"\"\",
+                   WHERE user_id = $1 AND {date_condition}""",
                 user_id
             )
             

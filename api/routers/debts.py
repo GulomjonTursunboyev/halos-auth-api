@@ -86,20 +86,20 @@ async def get_debts(
             if is_lent is not None:
                 debt_type = "gave" if is_lent else "took"
                 rows = await conn.fetch(
-                    \"\"\"SELECT id, user_id, debt_type, person_name, amount, description,
+                    """SELECT id, user_id, debt_type, person_name, amount, description,
                               given_date, due_date, status, returned_amount, created_at
                        FROM personal_debts 
                        WHERE user_id = $1 AND debt_type = $2
-                       ORDER BY given_date DESC\"\"\",
+                       ORDER BY given_date DESC""",
                     user_id, debt_type
                 )
             else:
                 rows = await conn.fetch(
-                    \"\"\"SELECT id, user_id, debt_type, person_name, amount, description,
+                    """SELECT id, user_id, debt_type, person_name, amount, description,
                               given_date, due_date, status, returned_amount, created_at
                        FROM personal_debts 
                        WHERE user_id = $1
-                       ORDER BY given_date DESC\"\"\",
+                       ORDER BY given_date DESC""",
                     user_id
                 )
             
@@ -157,11 +157,11 @@ async def create_debt(data: DebtCreate):
             
             # Insert into personal_debts (same table as Telegram bot)
             row = await conn.fetchrow(
-                \"\"\"INSERT INTO personal_debts 
+                """INSERT INTO personal_debts 
                        (user_id, debt_type, person_name, amount, description, 
                         given_date, due_date, status, returned_amount)
                    VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', 0)
-                   RETURNING id, created_at\"\"\",
+                   RETURNING id, created_at""",
                 user_id, debt_type, data.person_name, data.amount,
                 data.description, given_date.date(), 
                 data.due_date.date() if data.due_date else None
@@ -219,10 +219,10 @@ async def get_debt(debt_id: int, telegram_id: Optional[int] = None):
     if pool:
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                \"\"\"SELECT d.*, u.telegram_id 
+                """SELECT d.*, u.telegram_id 
                    FROM personal_debts d
                    JOIN users u ON d.user_id = u.id
-                   WHERE d.id = $1\"\"\",
+                   WHERE d.id = $1""",
                 debt_id
             )
             if not row:
@@ -327,11 +327,11 @@ async def pay_debt(debt_id: int, payment: DebtPayment = None, telegram_id: Optio
             new_status = "paid" if new_paid >= total_amount else "active"
             
             await conn.execute(
-                \"\"\"UPDATE personal_debts 
+                """UPDATE personal_debts 
                    SET returned_amount = $1, status = $2, 
                        returned_date = CASE WHEN $2 = 'paid' THEN CURRENT_DATE ELSE returned_date END,
                        updated_at = CURRENT_TIMESTAMP
-                   WHERE id = $3\"\"\",
+                   WHERE id = $3""",
                 new_paid, new_status, debt_id
             )
             
