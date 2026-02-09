@@ -53,6 +53,7 @@ class TelegramSessionConfirm(BaseModel):
 class TokenResponse(BaseModel):
     """JWT token response"""
     access_token: str
+    refresh_token: Optional[str] = None
     token_type: str = "bearer"
     user: dict
 
@@ -67,6 +68,18 @@ class SessionStatus(BaseModel):
 class TelegramWebAppRequest(BaseModel):
     """Telegram Mini App (WebApp) authentication request"""
     init_data: str
+
+
+def generate_refresh_token(user_data: dict) -> str:
+    """Generate refresh token for user"""
+    payload = {
+        "sub": str(user_data["telegram_id"]),
+        "telegram_id": user_data["telegram_id"],
+        "type": "refresh",
+        "exp": datetime.utcnow() + timedelta(days=90),
+        "iat": datetime.utcnow()
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
 def generate_jwt_token(user_data: dict) -> str:
@@ -242,10 +255,12 @@ async def confirm_telegram_session(session_id: str, request: TelegramSessionConf
     session["confirmed_at"] = datetime.utcnow()
     
     # Generate JWT token
-    token = generate_jwt_token(user_data)
-    
+    access_token = generate_jwt_token(user_data)
+    refresh_token = generate_refresh_token(user_data)
+
     return TokenResponse(
-        access_token=token,
+        access_token=access_token,
+        refresh_token=refresh_token,
         user=user_data
     )
 
@@ -320,10 +335,12 @@ async def authenticate_telegram_webapp(request: TelegramWebAppRequest):
         "is_premium": user_data.get("is_premium", False)
     }
     
-    # Generate JWT token
-    token = generate_jwt_token(telegram_user)
-    
+    # Generate tokens
+    access_token = generate_jwt_token(telegram_user)
+    refresh_token = generate_refresh_token(telegram_user)
+
     return TokenResponse(
-        access_token=token,
+        access_token=access_token,
+        refresh_token=refresh_token,
         user=telegram_user
     )
