@@ -8,7 +8,7 @@ Synced with Telegram bot database
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from api.routers import auth, transactions, debts, users
+from api.routers import auth, transactions, debts, users, plans
 from api.database import init_db, close_db
 
 
