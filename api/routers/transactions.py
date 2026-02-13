@@ -200,55 +200,6 @@ async def create_transaction(data: TransactionCreate):
     return tx
 
 
-@router.get("/transactions/{tx_id}")
-async def get_transaction(tx_id: int, telegram_id: Optional[int] = None):
-    """Get a specific transaction"""
-    pool = await get_pool()
-    
-    if pool:
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """SELECT t.*, u.telegram_id 
-                   FROM transactions t
-                   JOIN users u ON t.user_id = u.id
-                   WHERE t.id = $1""",
-                tx_id
-            )
-            if not row:
-                raise HTTPException(status_code=404, detail="Transaction not found")
-            
-            return {
-                "id": row["id"],
-                "user_id": row["user_id"],
-                "telegram_id": row["telegram_id"],
-                "type": row["type"],
-                "amount": float(row["amount"]),
-                "category": row["category"],
-                "description": row["description"],
-                "date": row["created_at"].isoformat() if row["created_at"] else None,
-                "source": "telegram" if row["original_text"] else "app",
-            }
-    
-    raise HTTPException(status_code=404, detail="Transaction not found")
-
-
-@router.delete("/transactions/{tx_id}")
-async def delete_transaction(tx_id: int, telegram_id: Optional[int] = None):
-    """Delete a transaction"""
-    pool = await get_pool()
-    
-    if pool:
-        async with pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM transactions WHERE id = $1",
-                tx_id
-            )
-            if "DELETE 1" in result:
-                return {"message": "Transaction deleted", "id": tx_id}
-    
-    raise HTTPException(status_code=404, detail="Transaction not found")
-
-
 @router.get("/transactions/summary")
 async def get_transactions_summary(
     telegram_id: Optional[int] = None,
@@ -296,3 +247,52 @@ async def get_transactions_summary(
             }
     
     return {"total_income": 0, "total_expense": 0, "balance": 0, "period": period}
+
+
+@router.get("/transactions/{tx_id}")
+async def get_transaction(tx_id: int, telegram_id: Optional[int] = None):
+    """Get a specific transaction"""
+    pool = await get_pool()
+    
+    if pool:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT t.*, u.telegram_id 
+                   FROM transactions t
+                   JOIN users u ON t.user_id = u.id
+                   WHERE t.id = $1""",
+                tx_id
+            )
+            if not row:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+            
+            return {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "telegram_id": row["telegram_id"],
+                "type": row["type"],
+                "amount": float(row["amount"]),
+                "category": row["category"],
+                "description": row["description"],
+                "date": row["created_at"].isoformat() if row["created_at"] else None,
+                "source": "telegram" if row["original_text"] else "app",
+            }
+    
+    raise HTTPException(status_code=404, detail="Transaction not found")
+
+
+@router.delete("/transactions/{tx_id}")
+async def delete_transaction(tx_id: int, telegram_id: Optional[int] = None):
+    """Delete a transaction"""
+    pool = await get_pool()
+    
+    if pool:
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM transactions WHERE id = $1",
+                tx_id
+            )
+            if "DELETE 1" in result:
+                return {"message": "Transaction deleted", "id": tx_id}
+    
+    raise HTTPException(status_code=404, detail="Transaction not found")

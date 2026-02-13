@@ -42,6 +42,7 @@ app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(transactions.router, prefix="/api", tags=["Transactions"])
 app.include_router(debts.router, prefix="/api", tags=["Debts"])
 app.include_router(users.router, prefix="/api", tags=["Users"])
+app.include_router(plans.router, prefix="/api", tags=["Plans"])
 
 
 @app.get("/")
