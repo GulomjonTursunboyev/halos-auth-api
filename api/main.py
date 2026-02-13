@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Halos API",
     description="Backend API for Halos mobile app - transactions, debts, user management. Synced with Telegram bot.",
-    version="2.1.0",
+    version="2.2.0",
     lifespan=lifespan
 )
 
@@ -47,7 +47,7 @@ app.include_router(plans.router, prefix="/api", tags=["Plans"])
 
 @app.get("/")
 async def root():
-    return {"message": "Halos API", "status": "running", "version": "2.1.0", "sync": "telegram_bot"}
+    return {"message": "Halos API", "status": "running", "version": "2.2.0", "sync": "telegram_bot"}
 
 
 @app.get("/health")
